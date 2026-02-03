@@ -972,8 +972,13 @@
         html += '<p class="text-sm font-semibold text-orange-700 mt-2">⚠️ Hiérarchie : Tournoi Principal = places 1 à 8 | Tournoi Consolante = places 9 à 16</p>';
         html += '</div>';
 
-        // Tableau détaillé
-        html += '<div class="border-2 border-gray-300 rounded-lg overflow-hidden">';
+        // Séparation visuelle : TOURNOI PRINCIPAL (1-8)
+        html += '<div class="mt-6 border-4 border-green-600 rounded-xl overflow-hidden shadow-lg">';
+        html += '<div class="bg-gradient-to-r from-green-700 to-green-900 text-white p-4">';
+        html += '<h3 class="text-2xl font-bold">🏆 TOURNOI PRINCIPAL - Places 1 à 8</h3>';
+        html += '<p class="text-sm mt-1">Les 2 premiers de chaque poule</p>';
+        html += '</div>';
+        
         html += '<div class="overflow-x-auto">';
         html += '<table class="w-full text-sm">';
         html += '<thead class="bg-gradient-to-r from-slate-700 to-slate-900 text-white">';
@@ -1000,16 +1005,18 @@
         html += '</thead>';
         html += '<tbody>';
         
-        for (let i = 0; i < allTeams.length; i++) {
+        // Afficher les équipes du PRINCIPAL (0-7)
+        for (let i = 0; i < Math.min(8, allTeams.length); i++) {
           const team = allTeams[i];
+          if (team.tournamentType !== 'principal') continue;
+          
           const hasFinale = team.finaleTime > 0;
           
           let rowColor = '';
           if (i === 0) rowColor = 'bg-yellow-100 border-l-4 border-yellow-500';
           else if (i === 1) rowColor = 'bg-gray-100 border-l-4 border-gray-400';
           else if (i === 2) rowColor = 'bg-orange-100 border-l-4 border-orange-400';
-          else if (i < 8) rowColor = 'bg-green-50';
-          else rowColor = 'bg-orange-50';
+          else rowColor = 'bg-green-50';
           
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
           
@@ -1017,7 +1024,115 @@
           html += '<td class="p-2 font-bold text-lg align-top">' + medal + ' ' + (hasFinale ? (i + 1) + (i === 0 ? 'er' : 'ème') : '-') + '</td>';
           html += '<td class="p-2 align-top">';
           html += '<div class="font-bold text-base mb-1">' + team.name + '</div>';
-          html += '<div class="text-xs text-gray-600">Poule ' + team.poule + '</div>';
+          html += '<div class="text-xs text-gray-600">Poule ' + team.poule + ' - ' + (team.position === 1 ? '1er' : team.position + 'ème') + '</div>';
+          if (team.members && team.members.length > 0) {
+            html += '<div class="text-xs text-gray-500 mt-1">';
+            for (let m = 0; m < team.members.length; m++) {
+              html += '<div>• ' + team.members[m] + '</div>';
+            }
+            html += '</div>';
+          }
+          html += '</td>';
+          
+          // Round 1
+          html += '<td class="p-2 text-center border-l border-gray-300">';
+          html += team.r1Blanc + team.r1Jaune > 0 ? (team.r1Blanc + team.r1Jaune) + '/' + (team.r1MaxTirs * 2) : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center ' + (team.r1Penalty > 0 ? 'text-red-600 font-bold' : 'text-green-600') + '">';
+          html += team.r1Pct > 0 ? team.r1Pct.toFixed(1) + '%' : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center">';
+          html += team.r1Time > 0 ? self.formatTime(team.r1Time) : '-';
+          if (team.r1Penalty > 0) html += '<div class="text-xs text-red-600">' + self.formatPenalty(team.r1Penalty) + '</div>';
+          html += '</td>';
+          html += '<td class="p-2 text-center font-semibold">';
+          html += team.r1Time > 0 ? self.formatTime(team.r1Time + team.r1Penalty) : '-';
+          html += '</td>';
+          
+          // Round 2
+          html += '<td class="p-2 text-center border-l border-gray-300">';
+          html += team.r2Blanc + team.r2Jaune > 0 ? (team.r2Blanc + team.r2Jaune) + '/' + (team.r2MaxTirs * 2) : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center ' + (team.r2Penalty > 0 ? 'text-red-600 font-bold' : 'text-green-600') + '">';
+          html += team.r2Pct > 0 ? team.r2Pct.toFixed(1) + '%' : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center">';
+          html += team.r2Time > 0 ? self.formatTime(team.r2Time) : '-';
+          if (team.r2Penalty > 0) html += '<div class="text-xs text-red-600">' + self.formatPenalty(team.r2Penalty) + '</div>';
+          html += '</td>';
+          html += '<td class="p-2 text-center font-semibold">';
+          html += team.r2Time > 0 ? self.formatTime(team.r2Time + team.r2Penalty) : '-';
+          html += '</td>';
+          
+          // Total Qualifs
+          html += '<td class="p-2 text-center font-bold border-l border-gray-300">';
+          html += team.qualifTotal > 0 ? self.formatTime(team.qualifTotal) : '-';
+          html += '</td>';
+          
+          // Finale
+          html += '<td class="p-2 text-center border-l border-yellow-400 bg-yellow-50 ' + (team.finalePct < self.settings.minPercentage && team.finalePct > 0 ? 'text-red-600 font-bold' : 'text-green-600') + '">';
+          html += team.finalePct > 0 ? team.finalePct.toFixed(1) + '%' : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center bg-yellow-50 font-bold text-base">';
+          html += team.finaleTime > 0 ? self.formatTime(team.finaleTime) : '-';
+          html += '</td>';
+          
+          html += '</tr>';
+        }
+        
+        html += '</tbody>';
+        html += '</table>';
+        html += '</div>';
+        html += '</div>';
+        
+        // Séparation visuelle : TOURNOI CONSOLANTE (9-16)
+        html += '<div class="mt-8 border-4 border-orange-600 rounded-xl overflow-hidden shadow-lg">';
+        html += '<div class="bg-gradient-to-r from-orange-600 to-orange-800 text-white p-4">';
+        html += '<h3 class="text-2xl font-bold">🎯 TOURNOI CONSOLANTE - Places 9 à 16</h3>';
+        html += '<p class="text-sm mt-1">Les 3ème et 4ème de chaque poule</p>';
+        html += '</div>';
+        
+        html += '<div class="overflow-x-auto">';
+        html += '<table class="w-full text-sm">';
+        html += '<thead class="bg-gradient-to-r from-slate-700 to-slate-900 text-white">';
+        html += '<tr>';
+        html += '<th class="p-2 text-left" rowspan="2">Place</th>';
+        html += '<th class="p-2 text-left" rowspan="2">Équipe et Élèves</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600" colspan="4">Round 1 (Qualifs)</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600" colspan="4">Round 2 (Qualifs)</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600" rowspan="2">Total<br/>Qualifs</th>';
+        html += '<th class="p-2 text-center border-l border-yellow-400 bg-yellow-600" colspan="2">FINALE</th>';
+        html += '</tr>';
+        html += '<tr class="border-t border-slate-600">';
+        html += '<th class="p-2 text-center border-l border-slate-600">Tirs</th>';
+        html += '<th class="p-2 text-center">%</th>';
+        html += '<th class="p-2 text-center">Temps</th>';
+        html += '<th class="p-2 text-center">Total</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600">Tirs</th>';
+        html += '<th class="p-2 text-center">%</th>';
+        html += '<th class="p-2 text-center">Temps</th>';
+        html += '<th class="p-2 text-center">Total</th>';
+        html += '<th class="p-2 text-center border-l border-yellow-400 bg-yellow-600">%</th>';
+        html += '<th class="p-2 text-center bg-yellow-600">Temps</th>';
+        html += '</tr>';
+        html += '</thead>';
+        html += '<tbody>';
+        
+        // Afficher les équipes de CONSOLANTE (8-15)
+        for (let i = 0; i < allTeams.length; i++) {
+          const team = allTeams[i];
+          if (team.tournamentType !== 'consolante') continue;
+          
+          const hasFinale = team.finaleTime > 0;
+          const place = 9 + consolanteTeams.indexOf(team);
+          
+          let rowColor = 'bg-orange-50';
+          
+          html += '<tr class="border-b ' + rowColor + '">';
+          html += '<td class="p-2 font-bold text-lg align-top">' + (hasFinale ? place + 'ème' : '-') + '</td>';
+          html += '<td class="p-2 align-top">';
+          html += '<div class="font-bold text-base mb-1">' + team.name + '</div>';
+          html += '<div class="text-xs text-gray-600">Poule ' + team.poule + ' - ' + (team.position === 3 ? '3ème' : '4ème') + '</div>';
           if (team.members && team.members.length > 0) {
             html += '<div class="text-xs text-gray-500 mt-1">';
             for (let m = 0; m < team.members.length; m++) {
