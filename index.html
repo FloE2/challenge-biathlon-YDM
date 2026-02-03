@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Challenge Biathlon 3ème - Yves du Manoir (Avec Précision)</title>
+  <title>Challenge Biathlon 3ème - Yves du Manoir (Simplifié)</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-slate-100">
@@ -49,10 +49,9 @@
       { time: "9h45 - 10h00", event: "ROUND 3 - Poules A + B", poules: ["A", "B"], type: "qualif" },
       { time: "10h00 - 10h15", event: "ROUND 4 - Poules C + D", poules: ["C", "D"], type: "qualif" },
       { time: "10h15 - 10h45", event: "Calcul des classements" },
-      { time: "10h45 - 11h00", event: "1er TOUR PHASES FINALES - 8 équipes Principal + 8 équipes Consolante", type: "finale" },
-      { time: "11h00 - 11h15", event: "FINALES - 4 meilleures Principal + 4 meilleures Consolante (simultané)", type: "finale" },
-      { time: "11h15 - 11h30", event: "FINALES CLASSEMENT - 4 éliminées Principal + 4 éliminées Consolante (simultané)", type: "finale" }
+      { time: "10h45 - 11h15", event: "FINALE UNIQUE - 8 équipes Principal + 8 équipes Consolante (simultané)", type: "finale" }
     ];
+    
     // Configuration Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyADUKP5x5gROlfJn-C3NtHGs11jcnKzwvM",
@@ -72,7 +71,7 @@
       const icon = document.getElementById('status-icon');
       const text = document.getElementById('status-text');
       
-      if (!statusDiv || !icon || !text) return; // Protection si les éléments n'existent pas encore
+      if (!statusDiv || !icon || !text) return;
       
       if (status === 'connected') {
         statusDiv.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white';
@@ -97,7 +96,6 @@
         this.initAsync();
       }
 
-      // NOUVEAU : Gestion des paramètres
       async loadSettings() {
         try {
           const snapshot = await database.ref('biathlon-data/settings').once('value');
@@ -123,6 +121,7 @@
           updateFirebaseStatus('error', 'Erreur');
         }
       }
+
       updateSetting(key, value) {
         this.settings[key] = parseFloat(value);
         this.saveSettings();
@@ -155,8 +154,8 @@
 
       resetPoulesData() {
         if (confirm('Êtes-vous sûr de vouloir réinitialiser toutes les équipes aux valeurs par défaut ?')) {
-          localStorage.removeItem('biathlon-poules');
           this.poulesData = JSON.parse(JSON.stringify(POULES_DATA));
+          this.savePoulesData();
           this.render();
         }
       }
@@ -223,14 +222,14 @@
         const secs = (seconds % 60).toFixed(2);
         return mins + ':' + secs.padStart(5, '0');
       }
-      // NOUVEAU : Format spécial pour les pénalités (affiche "1 min" au lieu de "1:00")
-formatPenalty(seconds) {
-  if (!seconds || seconds === 0) return '';
-  const mins = Math.floor(seconds / 60);
-  if (mins === 1) return '+1 min';
-  if (mins > 1) return '+' + mins + ' min';
-  return '+' + seconds + 's';
-}
+
+      formatPenalty(seconds) {
+        if (!seconds || seconds === 0) return '';
+        const mins = Math.floor(seconds / 60);
+        if (mins === 1) return '+1 min';
+        if (mins > 1) return '+' + mins + ' min';
+        return '+' + seconds + 's';
+      }
 
       parseTime(timeStr) {
         if (!timeStr) return 0;
@@ -277,7 +276,6 @@ formatPenalty(seconds) {
         return this.results[key] || {};
       }
 
-      // NOUVEAU : Calculs de pourcentage et pénalités
       calculateRoundPercentage(result, round) {
         const blanc = parseInt(result['round' + round + '_blanc'] || 0);
         const jaune = parseInt(result['round' + round + '_jaune'] || 0);
@@ -298,7 +296,6 @@ formatPenalty(seconds) {
         return baseTime + penalty;
       }
 
-      // MODIFIÉ : Utilise les temps ajustés
       calculateTotalTime(poule, teamName) {
         const result = this.getTeamResult(poule, teamName);
         const round1 = this.calculateAdjustedRoundTime(result, 1);
@@ -306,7 +303,6 @@ formatPenalty(seconds) {
         return round1 + round2;
       }
 
-      // NOUVEAU : Pourcentage moyen
       calculateAveragePercentage(poule, teamName) {
         const result = this.getTeamResult(poule, teamName);
         const p1 = this.calculateRoundPercentage(result, 1);
@@ -315,7 +311,6 @@ formatPenalty(seconds) {
         return count > 0 ? (p1 + p2) / count : 0;
       }
 
-      // MODIFIÉ : Ajout du pourcentage moyen
       getRanking(poule) {
         const self = this;
         return this.poulesData[poule]
@@ -378,45 +373,45 @@ formatPenalty(seconds) {
         return teams;
       }
 
-      // MODIFIÉ : Gestion des finales avec pourcentage et pénalités
-      updateFinaleResult(type, phase, teamName, field, value) {
-        const key = 'finale_' + type + '_' + phase + '_' + teamName + '_' + field;
+      // NOUVEAU: Gestion simplifiée des finales (un seul tour)
+      updateFinaleResult(type, teamName, field, value) {
+        const key = 'finale_' + type + '_' + teamName + '_' + field;
         this.results[key] = value;
         this.saveResults();
         this.render();
       }
 
-      getFinaleResult(type, phase, teamName, field) {
-        const key = 'finale_' + type + '_' + phase + '_' + teamName + '_' + field;
+      getFinaleResult(type, teamName, field) {
+        const key = 'finale_' + type + '_' + teamName + '_' + field;
         return this.results[key] || '';
       }
 
-      calculateFinalePercentage(type, phase, teamName) {
-        const reussis = parseInt(this.getFinaleResult(type, phase, teamName, 'tirs') || 0);
-        const maxTirs = parseInt(this.getFinaleResult(type, phase, teamName, 'maxtirs') || 20);
+      calculateFinalePercentage(type, teamName) {
+        const reussis = parseInt(this.getFinaleResult(type, teamName, 'tirs') || 0);
+        const maxTirs = parseInt(this.getFinaleResult(type, teamName, 'maxtirs') || 20);
         return maxTirs > 0 ? (reussis / maxTirs) * 100 : 0;
       }
 
-      calculateFinalePenalty(type, phase, teamName) {
-        const percentage = this.calculateFinalePercentage(type, phase, teamName);
+      calculateFinalePenalty(type, teamName) {
+        const percentage = this.calculateFinalePercentage(type, teamName);
         return percentage < this.settings.minPercentage ? this.settings.penaltyTime : 0;
       }
 
-      calculateAdjustedFinaleTime(type, phase, teamName) {
-        const baseTime = this.parseTime(this.getFinaleResult(type, phase, teamName, 'time') || 0);
-        const penalty = this.calculateFinalePenalty(type, phase, teamName);
+      calculateAdjustedFinaleTime(type, teamName) {
+        const baseTime = this.parseTime(this.getFinaleResult(type, teamName, 'time') || 0);
+        const penalty = this.calculateFinalePenalty(type, teamName);
         return baseTime + penalty;
       }
 
-      // MODIFIÉ : Utilise les temps ajustés
-      getFinaleRanking(type, phase, teams) {
+      getFinaleRanking(type, teams) {
         const self = this;
         const ranking = teams.map(team => {
-          const adjustedTime = self.calculateAdjustedFinaleTime(type, phase, team.name);
-          const percentage = self.calculateFinalePercentage(type, phase, team.name);
-          const penalty = self.calculateFinalePenalty(type, phase, team.name);
+          const adjustedTime = self.calculateAdjustedFinaleTime(type, team.name);
+          const percentage = self.calculateFinalePercentage(type, team.name);
+          const penalty = self.calculateFinalePenalty(type, team.name);
           return {
             name: team.name,
+            members: team.members,
             adjustedTime: adjustedTime,
             percentage: percentage,
             penalty: penalty
@@ -447,7 +442,6 @@ formatPenalty(seconds) {
         }
       }
 
-      // NOUVEAU : Barre de paramètres
       renderSettingsBar() {
         return '<div class="bg-blue-100 border-2 border-blue-400 rounded-lg p-4 mb-6">' +
           '<div class="flex items-center gap-6">' +
@@ -465,6 +459,7 @@ formatPenalty(seconds) {
           '</div>' +
           '</div>';
       }
+
       renderPlanning() {
         let html = '<div class="space-y-4">';
         html += '<div class="flex justify-between items-center mb-6">';
@@ -498,6 +493,7 @@ formatPenalty(seconds) {
         html += '<li><strong>NOUVEAU :</strong> Précision au tir privilégiée ! Si pourcentage < ' + this.settings.minPercentage + '% → +1 minute de pénalité</li>';
         html += '<li>Les 2 premiers de chaque poule → Tournoi Principal (8 équipes)</li>';
         html += '<li>Les 2 derniers de chaque poule → Tournoi Consolante (8 équipes)</li>';
+        html += '<li><strong>FINALE UNIQUE :</strong> Un seul tour pour classer de 1 à 16</li>';
         html += '</ul></div></div>';
         return html;
       }
@@ -514,7 +510,6 @@ formatPenalty(seconds) {
         html += '<div class="text-sm text-gray-600">' + teams.length + ' équipes • ' + totalMembers + ' élèves</div>';
         html += '</div>';
 
-        // Barre de paramètres
         html += this.renderSettingsBar();
 
         // Composition
@@ -689,9 +684,8 @@ formatPenalty(seconds) {
         let html = '<div class="space-y-6">';
         html += '<h2 class="text-3xl font-bold">🏆 Phases Finales - Récapitulatif</h2>';
         html += '<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded">';
-        html += '<p class="font-semibold">⏰ Horaire : 10h45 - 11h30</p>';
-        html += '<p class="text-sm text-gray-700 mt-1"><strong>1er Tour :</strong> 8 équipes font un run, les 4 meilleures se qualifient pour la finale</p>';
-        html += '<p class="text-sm text-gray-700"><strong>Finale :</strong> 4 meilleures de chaque tournoi (simultané sur 8 postes)</p>';
+        html += '<p class="font-semibold">⏰ Horaire : 10h45 - 11h15</p>';
+        html += '<p class="text-sm text-gray-700 mt-1"><strong>FINALE UNIQUE :</strong> Les 16 équipes font un run final pour le classement de 1 à 16</p>';
         html += '<p class="text-sm text-red-600 font-bold mt-2">⚠️ Pénalité de +1 min si % tir < ' + this.settings.minPercentage + '%</p>';
         html += '</div>';
 
@@ -774,55 +768,54 @@ formatPenalty(seconds) {
         let html = '<div class="space-y-6">';
         html += '<h2 class="text-3xl font-bold">' + title + '</h2>';
         
-        // Barre de paramètres
         html += this.renderSettingsBar();
 
         html += '<div class="p-4 bg-' + colorClass + '-50 border-l-4 border-' + colorClass + '-500 rounded">';
-        html += '<p class="font-semibold">8 équipes qualifiées</p>';
-        html += '<p class="text-sm text-gray-700 mt-1">Système de runs : saisissez le nombre de tirs, tirs réussis et temps</p>';
+        html += '<p class="font-semibold">8 équipes qualifiées - FINALE UNIQUE</p>';
+        html += '<p class="text-sm text-gray-700 mt-1">Saisissez le nombre de tirs, tirs réussis et temps pour chaque équipe</p>';
+        html += '<p class="text-sm text-gray-700">Ce tour détermine le classement final ' + (type === 'principal' ? 'de 1 à 8' : 'de 9 à 16') + '</p>';
         html += '</div>';
 
-        // 1er Tour
+        // Finale Unique
         html += '<div class="border-2 border-' + colorClass + '-300 rounded-lg p-6 bg-white">';
-        html += '<h3 class="text-2xl font-bold mb-4 text-' + colorClass + '-700">1er Tour - Les 8 équipes</h3>';
-        html += '<p class="text-sm text-gray-600 mb-4">Les 4 meilleures temps se qualifieront pour la finale</p>';
+        html += '<h3 class="text-2xl font-bold mb-4 text-' + colorClass + '-700">🏁 FINALE - Les 8 équipes</h3>';
         
         html += '<div class="space-y-3">';
         for (let i = 0; i < teams.length; i++) {
           const team = teams[i];
-          const tirs = self.getFinaleResult(type, 'tour1', team.name, 'tirs');
-          const maxTirs = self.getFinaleResult(type, 'tour1', team.name, 'maxtirs') || '20';
-          const time = self.getFinaleResult(type, 'tour1', team.name, 'time');
-          const percentage = self.calculateFinalePercentage(type, 'tour1', team.name);
-          const penalty = self.calculateFinalePenalty(type, 'tour1', team.name);
+          const tirs = self.getFinaleResult(type, team.name, 'tirs');
+          const maxTirs = self.getFinaleResult(type, team.name, 'maxtirs') || '20';
+          const time = self.getFinaleResult(type, team.name, 'time');
+          const percentage = self.calculateFinalePercentage(type, team.name);
+          const penalty = self.calculateFinalePenalty(type, team.name);
           const baseTime = self.parseTime(time);
           const adjustedTime = baseTime + penalty;
           
           html += '<div class="p-3 bg-gray-50 rounded-lg border-2 border-gray-200">';
           html += '<div class="flex items-center gap-4 mb-2">';
           html += '<div class="flex-1 font-semibold text-lg">' + team.name + '</div>';
-          html += '<div class="text-xs text-gray-500">(Poule ' + team.poule + ' - ' + (team.position === 1 ? '1er' : '2ème') + ')</div>';
+          html += '<div class="text-xs text-gray-500">(Poule ' + team.poule + ' - ' + (team.position === 1 ? '1er' : team.position === 2 ? '2ème' : team.position === 3 ? '3ème' : '4ème') + ')</div>';
           html += '</div>';
           
           html += '<div class="grid grid-cols-4 gap-2">';
           html += '<div>';
           html += '<label class="text-xs text-gray-600">Nb tirs (20/25)</label>';
           html += '<input type="number" min="20" max="25" step="5" value="' + maxTirs + '" ';
-          html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'tour1\', \'' + team.name + '\', \'maxtirs\', this.value)" ';
+          html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'' + team.name + '\', \'maxtirs\', this.value)" ';
           html += 'class="w-full px-2 py-1 border-2 border-gray-300 rounded text-sm font-semibold"/>';
           html += '</div>';
           
           html += '<div>';
           html += '<label class="text-xs text-gray-600">Tirs réussis</label>';
           html += '<input type="number" min="0" value="' + tirs + '" ';
-          html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'tour1\', \'' + team.name + '\', \'tirs\', this.value)" ';
+          html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'' + team.name + '\', \'tirs\', this.value)" ';
           html += 'class="w-full px-2 py-1 border-2 border-gray-300 rounded text-sm font-semibold"/>';
           html += '</div>';
           
           html += '<div>';
           html += '<label class="text-xs text-gray-600">Temps brut</label>';
           html += '<input type="text" value="' + time + '" ';
-          html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'tour1\', \'' + team.name + '\', \'time\', this.value)" ';
+          html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'' + team.name + '\', \'time\', this.value)" ';
           html += 'class="w-full px-2 py-1 border-2 border-gray-300 rounded text-sm font-semibold" placeholder="MM:SS"/>';
           html += '</div>';
           
@@ -843,214 +836,29 @@ formatPenalty(seconds) {
         }
         html += '</div>';
 
-        // Classement 1er Tour
-        const tour1Ranking = self.getFinaleRanking(type, 'tour1', teams);
-        const qualified = tour1Ranking.filter(t => t.adjustedTime > 0).slice(0, 4);
-        const eliminated = tour1Ranking.filter(t => t.adjustedTime > 0).slice(4, 8);
-
-        if (qualified.length > 0) {
-          html += '<div class="mt-4 p-4 bg-' + colorClass + '-50 rounded-lg">';
-          html += '<h4 class="font-bold text-' + colorClass + '-700 mb-2">✅ Qualifiées pour la Finale (4 meilleures):</h4>';
-          html += '<div class="space-y-1">';
-          for (let i = 0; i < qualified.length; i++) {
-            html += '<div class="flex justify-between items-center">';
-            html += '<span class="font-semibold">' + (i + 1) + '. ' + qualified[i].name + '</span>';
+        // Classement Final
+        const finaleRanking = self.getFinaleRanking(type, teams);
+        const finalists = finaleRanking.filter(t => t.adjustedTime > 0);
+        
+        if (finalists.length > 0) {
+          html += '<div class="mt-4 p-4 bg-' + colorClass + '-50 rounded-lg border-2 border-' + colorClass + '-400">';
+          html += '<h4 class="font-bold text-' + colorClass + '-900 mb-3 text-lg">🏅 CLASSEMENT FINAL:</h4>';
+          html += '<div class="space-y-2">';
+          const startPlace = type === 'principal' ? 1 : 9;
+          for (let i = 0; i < finalists.length; i++) {
+            const place = startPlace + i;
+            const medal = type === 'principal' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅') : '🏅';
+            html += '<div class="flex justify-between items-center p-2 bg-white rounded">';
+            html += '<span class="font-bold text-xl">' + medal + ' ' + place + (place === 1 ? 'er' : 'ème') + '. ' + finalists[i].name + '</span>';
             html += '<div class="text-right">';
-            html += '<span class="text-xs text-gray-600 mr-2">🎯 ' + qualified[i].percentage.toFixed(1) + '%</span>';
-            html += '<span class="text-' + colorClass + '-700 font-bold">' + self.formatTime(qualified[i].adjustedTime) + '</span>';
-            html += '</div></div>';
-          }
-          html += '</div></div>';
-        }
-
-        if (eliminated.length > 0) {
-          html += '<div class="mt-2 p-4 bg-gray-100 rounded-lg">';
-          html += '<h4 class="font-bold text-gray-700 mb-2">📊 Match de Classement:</h4>';
-          html += '<div class="space-y-1">';
-          for (let i = 0; i < eliminated.length; i++) {
-            html += '<div class="flex justify-between items-center">';
-            html += '<span>' + (i + 5) + '. ' + eliminated[i].name + '</span>';
-            html += '<div class="text-right">';
-            html += '<span class="text-xs text-gray-600 mr-2">🎯 ' + eliminated[i].percentage.toFixed(1) + '%</span>';
-            html += '<span class="text-gray-600">' + self.formatTime(eliminated[i].adjustedTime) + '</span>';
+            html += '<span class="text-xs text-gray-600 mr-2">🎯 ' + finalists[i].percentage.toFixed(1) + '%</span>';
+            html += '<span class="text-lg font-bold text-' + colorClass + '-700">' + self.formatTime(finalists[i].adjustedTime) + '</span>';
             html += '</div></div>';
           }
           html += '</div></div>';
         }
 
         html += '</div>';
-
-        // Finale (4 meilleures) - SEULEMENT SI 4 QUALIFIEES
-        if (qualified.length === 4) {
-          html += '<div class="border-2 border-yellow-400 rounded-lg p-6 bg-yellow-50">';
-          html += '<h3 class="text-2xl font-bold mb-4 text-yellow-800">🏆 FINALE - 4 meilleures équipes</h3>';
-          html += '<p class="text-sm text-gray-700 mb-4">Classement final pour les places ' + (type === 'principal' ? '1 à 4' : '9 à 12') + '</p>';
-          
-          html += '<div class="space-y-3">';
-          for (let i = 0; i < qualified.length; i++) {
-            const team = qualified[i];
-            const tirs = self.getFinaleResult(type, 'finale', team.name, 'tirs');
-            const maxTirs = self.getFinaleResult(type, 'finale', team.name, 'maxtirs') || '20';
-            const time = self.getFinaleResult(type, 'finale', team.name, 'time');
-            const percentage = self.calculateFinalePercentage(type, 'finale', team.name);
-            const penalty = self.calculateFinalePenalty(type, 'finale', team.name);
-            const baseTime = self.parseTime(time);
-            const adjustedTime = baseTime + penalty;
-            
-            html += '<div class="p-3 bg-white rounded-lg border-2 border-yellow-300">';
-            html += '<div class="flex items-center gap-4 mb-2">';
-            html += '<div class="flex-1 font-semibold text-lg">' + team.name + '</div>';
-            html += '</div>';
-            
-            html += '<div class="grid grid-cols-4 gap-2">';
-            html += '<div>';
-            html += '<label class="text-xs text-gray-600">Nb tirs (20/25)</label>';
-            html += '<input type="number" min="20" max="25" step="5" value="' + maxTirs + '" ';
-            html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'finale\', \'' + team.name + '\', \'maxtirs\', this.value)" ';
-            html += 'class="w-full px-2 py-1 border-2 border-yellow-400 rounded text-sm font-semibold"/>';
-            html += '</div>';
-            
-            html += '<div>';
-            html += '<label class="text-xs text-gray-600">Tirs réussis</label>';
-            html += '<input type="number" min="0" value="' + tirs + '" ';
-            html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'finale\', \'' + team.name + '\', \'tirs\', this.value)" ';
-            html += 'class="w-full px-2 py-1 border-2 border-yellow-400 rounded text-sm font-bold"/>';
-            html += '</div>';
-            
-            html += '<div>';
-            html += '<label class="text-xs text-gray-600">Temps brut</label>';
-            html += '<input type="text" value="' + time + '" ';
-            html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'finale\', \'' + team.name + '\', \'time\', this.value)" ';
-            html += 'class="w-full px-2 py-1 border-2 border-yellow-400 rounded text-sm font-bold" placeholder="MM:SS"/>';
-            html += '</div>';
-            
-            html += '<div class="text-xs">';
-            if (percentage > 0) {
-              html += '<div class="font-semibold ' + (penalty > 0 ? 'text-red-600' : 'text-green-600') + '">🎯 ' + percentage.toFixed(1) + '%</div>';
-            }
-            if (baseTime > 0) {
-              html += '<div>Brut: ' + self.formatTime(baseTime) + '</div>';
-              if (penalty > 0) {
-                html += '<div class="text-red-600 font-bold">+' + self.formatTime(penalty) + '</div>';
-              }
-              html += '<div class="font-bold text-blue-600">' + self.formatTime(adjustedTime) + '</div>';
-            }
-            html += '</div>';
-            
-            html += '</div></div>';
-          }
-          html += '</div>';
-
-          // Classement Final
-          const finaleRanking = self.getFinaleRanking(type, 'finale', qualified);
-          const finalists = finaleRanking.filter(t => t.adjustedTime > 0);
-          
-          if (finalists.length > 0) {
-            html += '<div class="mt-4 p-4 bg-yellow-100 rounded-lg border-2 border-yellow-400">';
-            html += '<h4 class="font-bold text-yellow-900 mb-3 text-lg">🏅 CLASSEMENT FINAL:</h4>';
-            html += '<div class="space-y-2">';
-            const startPlace = type === 'principal' ? 1 : 9;
-            for (let i = 0; i < finalists.length; i++) {
-              const place = startPlace + i;
-              const medal = type === 'principal' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅') : '🏅';
-              html += '<div class="flex justify-between items-center p-2 bg-white rounded">';
-              html += '<span class="font-bold text-xl">' + medal + ' ' + place + (place === 1 ? 'er' : 'ème') + '. ' + finalists[i].name + '</span>';
-              html += '<div class="text-right">';
-              html += '<span class="text-xs text-gray-600 mr-2">🎯 ' + finalists[i].percentage.toFixed(1) + '%</span>';
-              html += '<span class="text-lg font-bold text-' + colorClass + '-700">' + self.formatTime(finalists[i].adjustedTime) + '</span>';
-              html += '</div></div>';
-            }
-            html += '</div></div>';
-          }
-
-          html += '</div>';
-        }
-
-        // Finale Classement (4 éliminées)
-        if (eliminated.length === 4) {
-          html += '<div class="border-2 border-gray-400 rounded-lg p-6 bg-gray-50">';
-          html += '<h3 class="text-2xl font-bold mb-4 text-gray-700">📊 MATCH DE CLASSEMENT - 4 équipes</h3>';
-          html += '<p class="text-sm text-gray-700 mb-4">Classement pour les places ' + (type === 'principal' ? '5 à 8' : '13 à 16') + '</p>';
-          
-          html += '<div class="space-y-3">';
-          for (let i = 0; i < eliminated.length; i++) {
-            const team = eliminated[i];
-            const tirs = self.getFinaleResult(type, 'classement', team.name, 'tirs');
-            const maxTirs = self.getFinaleResult(type, 'classement', team.name, 'maxtirs') || '20';
-            const time = self.getFinaleResult(type, 'classement', team.name, 'time');
-            const percentage = self.calculateFinalePercentage(type, 'classement', team.name);
-            const penalty = self.calculateFinalePenalty(type, 'classement', team.name);
-            const baseTime = self.parseTime(time);
-            const adjustedTime = baseTime + penalty;
-            
-            html += '<div class="p-3 bg-white rounded-lg border border-gray-300">';
-            html += '<div class="flex items-center gap-4 mb-2">';
-            html += '<div class="flex-1 font-semibold">' + team.name + '</div>';
-            html += '</div>';
-            
-            html += '<div class="grid grid-cols-4 gap-2">';
-            html += '<div>';
-            html += '<label class="text-xs text-gray-600">Nb tirs (20/25)</label>';
-            html += '<input type="number" min="20" max="25" step="5" value="' + maxTirs + '" ';
-            html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'classement\', \'' + team.name + '\', \'maxtirs\', this.value)" ';
-            html += 'class="w-full px-2 py-1 border-2 border-gray-300 rounded text-sm font-semibold"/>';
-            html += '</div>';
-            
-            html += '<div>';
-            html += '<label class="text-xs text-gray-600">Tirs réussis</label>';
-            html += '<input type="number" min="0" value="' + tirs + '" ';
-            html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'classement\', \'' + team.name + '\', \'tirs\', this.value)" ';
-            html += 'class="w-full px-2 py-1 border-2 border-gray-300 rounded text-sm font-semibold"/>';
-            html += '</div>';
-            
-            html += '<div>';
-            html += '<label class="text-xs text-gray-600">Temps brut</label>';
-            html += '<input type="text" value="' + time + '" ';
-            html += 'onchange="app.updateFinaleResult(\'' + type + '\', \'classement\', \'' + team.name + '\', \'time\', this.value)" ';
-            html += 'class="w-full px-2 py-1 border-2 border-gray-300 rounded text-sm font-semibold" placeholder="MM:SS"/>';
-            html += '</div>';
-            
-            html += '<div class="text-xs">';
-            if (percentage > 0) {
-              html += '<div class="font-semibold ' + (penalty > 0 ? 'text-red-600' : 'text-green-600') + '">🎯 ' + percentage.toFixed(1) + '%</div>';
-            }
-            if (baseTime > 0) {
-              html += '<div>Brut: ' + self.formatTime(baseTime) + '</div>';
-              if (penalty > 0) {
-                html += '<div class="text-red-600 font-bold">+' + self.formatTime(penalty) + '</div>';
-              }
-              html += '<div class="font-bold text-blue-600">' + self.formatTime(adjustedTime) + '</div>';
-            }
-            html += '</div>';
-            
-            html += '</div></div>';
-          }
-          html += '</div>';
-
-          // Classement Classement
-          const classementRanking = self.getFinaleRanking(type, 'classement', eliminated);
-          const classementFinalists = classementRanking.filter(t => t.adjustedTime > 0);
-          
-          if (classementFinalists.length > 0) {
-            html += '<div class="mt-4 p-4 bg-gray-100 rounded-lg border-2 border-gray-400">';
-            html += '<h4 class="font-bold text-gray-800 mb-3">📊 Classement:</h4>';
-            html += '<div class="space-y-2">';
-            const startPlace = type === 'principal' ? 5 : 13;
-            for (let i = 0; i < classementFinalists.length; i++) {
-              const place = startPlace + i;
-              html += '<div class="flex justify-between items-center p-2 bg-white rounded">';
-              html += '<span class="font-semibold">' + place + 'ème. ' + classementFinalists[i].name + '</span>';
-              html += '<div class="text-right">';
-              html += '<span class="text-xs text-gray-600 mr-2">🎯 ' + classementFinalists[i].percentage.toFixed(1) + '%</span>';
-              html += '<span class="font-bold text-gray-700">' + self.formatTime(classementFinalists[i].adjustedTime) + '</span>';
-              html += '</div></div>';
-            }
-            html += '</div></div>';
-          }
-
-          html += '</div>';
-        }
-
         html += '</div>';
         return html;
       }
@@ -1058,172 +866,196 @@ formatPenalty(seconds) {
       renderClassementGeneral() {
         const self = this;
         
-        // Récupérer les équipes qualifiées
-        const principalTeams = this.getQualifiedTeams('principal');
-        const consolanteTeams = this.getQualifiedTeams('consolante');
+        // Récupérer toutes les équipes avec leurs résultats complets
+        const allTeams = [];
+        const poules = ['A', 'B', 'C', 'D'];
+        
+        for (let p = 0; p < poules.length; p++) {
+          const poule = poules[p];
+          const teams = this.poulesData[poule];
+          
+          for (let t = 0; t < teams.length; t++) {
+            const team = teams[t];
+            const qualifResult = this.getTeamResult(poule, team.name);
+            
+            // Déterminer le type de tournoi
+            const ranking = this.getRanking(poule);
+            const teamRanking = ranking.find(r => r.name === team.name);
+            const position = ranking.indexOf(teamRanking);
+            
+            let tournamentType = '';
+            if (position === 0 || position === 1) {
+              tournamentType = 'principal';
+            } else if (position === 2 || position === 3) {
+              tournamentType = 'consolante';
+            }
+            
+            // Récupérer les résultats de finale si disponibles
+            let finaleTime = 0;
+            let finalePct = 0;
+            if (tournamentType) {
+              finaleTime = this.calculateAdjustedFinaleTime(tournamentType, team.name);
+              finalePct = this.calculateFinalePercentage(tournamentType, team.name);
+            }
+            
+            allTeams.push({
+              name: team.name,
+              members: team.members,
+              poule: poule,
+              position: position + 1,
+              tournamentType: tournamentType,
+              // Résultats qualifs
+              r1Blanc: parseInt(qualifResult['round1_blanc'] || 0),
+              r1Jaune: parseInt(qualifResult['round1_jaune'] || 0),
+              r1MaxTirs: parseInt(qualifResult['round1_maxtirs'] || 20),
+              r1Time: this.parseTime(qualifResult['round1_time'] || 0),
+              r1Pct: this.calculateRoundPercentage(qualifResult, 1),
+              r1Penalty: this.calculateRoundPenalty(qualifResult, 1),
+              r2Blanc: parseInt(qualifResult['round2_blanc'] || 0),
+              r2Jaune: parseInt(qualifResult['round2_jaune'] || 0),
+              r2MaxTirs: parseInt(qualifResult['round2_maxtirs'] || 20),
+              r2Time: this.parseTime(qualifResult['round2_time'] || 0),
+              r2Pct: this.calculateRoundPercentage(qualifResult, 2),
+              r2Penalty: this.calculateRoundPenalty(qualifResult, 2),
+              qualifTotal: this.calculateTotalTime(poule, team.name),
+              // Résultats finale
+              finaleTime: finaleTime,
+              finalePct: finalePct
+            });
+          }
+        }
+        
+        // Trier par temps de finale (ceux sans temps à la fin)
+        allTeams.sort((a, b) => {
+          if (a.finaleTime === 0 && b.finaleTime === 0) return 0;
+          if (a.finaleTime === 0) return 1;
+          if (b.finaleTime === 0) return -1;
+          return a.finaleTime - b.finaleTime;
+        });
         
         let html = '<div class="space-y-6">';
         html += '<h2 class="text-3xl font-bold">🏅 Classement Général du Tournoi</h2>';
         
         html += '<div class="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 rounded">';
         html += '<p class="font-semibold text-lg">🎯 Classement final de 1 à 16</p>';
-        html += '<p class="text-sm text-gray-700 mt-1">Basé sur les temps des finales (avec pénalités si % < ' + this.settings.minPercentage + '%)</p>';
+        html += '<p class="text-sm text-gray-700 mt-1">Basé sur les temps de la finale unique (avec pénalités si % < ' + this.settings.minPercentage + '%)</p>';
+        html += '<p class="text-sm text-gray-700">Détails complets : Qualifications (R1 + R2) + Finale</p>';
         html += '</div>';
 
-        const classement = [];
-
-        // Places 1-4 : Finale Tournoi Principal
-        if (principalTeams.length === 8) {
-          const tour1Ranking = self.getFinaleRanking('principal', 'tour1', principalTeams);
-          const qualified = tour1Ranking.filter(t => t.adjustedTime > 0).slice(0, 4);
-          
-          if (qualified.length === 4) {
-            const finaleRanking = self.getFinaleRanking('principal', 'finale', qualified);
-            const finalists = finaleRanking.filter(t => t.adjustedTime > 0);
-            
-            for (let i = 0; i < finalists.length; i++) {
-              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-              classement.push({
-                place: i + 1,
-                team: finalists[i].name,
-                time: self.formatTime(finalists[i].adjustedTime),
-                percentage: finalists[i].percentage,
-                category: medal + ' Finale Tournoi Principal',
-                color: i === 0 ? 'bg-yellow-100 border-yellow-400' : 
-                       i === 1 ? 'bg-gray-100 border-gray-400' : 
-                       i === 2 ? 'bg-orange-100 border-orange-400' : 
-                       'bg-blue-50 border-blue-300'
-              });
-            }
-          }
-        }
-
-        // Places 5-8 : Finale Classement Tournoi Principal
-        if (principalTeams.length === 8) {
-          const tour1Ranking = self.getFinaleRanking('principal', 'tour1', principalTeams);
-          const eliminated = tour1Ranking.filter(t => t.adjustedTime > 0).slice(4, 8);
-          
-          if (eliminated.length === 4) {
-            const classementRanking = self.getFinaleRanking('principal', 'classement', eliminated);
-            const classementFinalists = classementRanking.filter(t => t.adjustedTime > 0);
-            
-            for (let i = 0; i < classementFinalists.length; i++) {
-              classement.push({
-                place: 5 + i,
-                team: classementFinalists[i].name,
-                time: self.formatTime(classementFinalists[i].adjustedTime),
-                percentage: classementFinalists[i].percentage,
-                category: 'Finale Classement Tournoi Principal',
-                color: 'bg-blue-50 border-blue-200'
-              });
-            }
-          }
-        }
-
-        // Places 9-12 : Finale Tournoi Consolante
-        if (consolanteTeams.length === 8) {
-          const tour1Ranking = self.getFinaleRanking('consolante', 'tour1', consolanteTeams);
-          const qualified = tour1Ranking.filter(t => t.adjustedTime > 0).slice(0, 4);
-          
-          if (qualified.length === 4) {
-            const finaleRanking = self.getFinaleRanking('consolante', 'finale', qualified);
-            const finalists = finaleRanking.filter(t => t.adjustedTime > 0);
-            
-            for (let i = 0; i < finalists.length; i++) {
-              classement.push({
-                place: 9 + i,
-                team: finalists[i].name,
-                time: self.formatTime(finalists[i].adjustedTime),
-                percentage: finalists[i].percentage,
-                category: 'Finale Tournoi Consolante',
-                color: 'bg-orange-50 border-orange-300'
-              });
-            }
-          }
-        }
-
-        // Places 13-16 : Finale Classement Tournoi Consolante
-        if (consolanteTeams.length === 8) {
-          const tour1Ranking = self.getFinaleRanking('consolante', 'tour1', consolanteTeams);
-          const eliminated = tour1Ranking.filter(t => t.adjustedTime > 0).slice(4, 8);
-          
-          if (eliminated.length === 4) {
-            const classementRanking = self.getFinaleRanking('consolante', 'classement', eliminated);
-            const classementFinalists = classementRanking.filter(t => t.adjustedTime > 0);
-            
-            for (let i = 0; i < classementFinalists.length; i++) {
-              classement.push({
-                place: 13 + i,
-                team: classementFinalists[i].name,
-                time: self.formatTime(classementFinalists[i].adjustedTime),
-                percentage: classementFinalists[i].percentage,
-                category: 'Finale Classement Tournoi Consolante',
-                color: 'bg-gray-50 border-gray-200'
-              });
-            }
-          }
-        }
-
-        // Enrichir le classement avec les noms des élèves
-        for (let i = 0; i < classement.length; i++) {
-          const item = classement[i];
-          let members = [];
-          const poules = ['A', 'B', 'C', 'D'];
-          for (let p = 0; p < poules.length; p++) {
-            const poule = poules[p];
-            const teams = this.poulesData[poule];
-            for (let t = 0; t < teams.length; t++) {
-              if (teams[t].name === item.team) {
-                members = teams[t].members;
-                break;
-              }
-            }
-            if (members.length > 0) break;
-          }
-          classement[i].members = members;
-        }
-
-        // Afficher le classement
-        html += '<div class="border-2 border-gray-300 rounded-lg overflow-hidden mt-6">';
-        html += '<table class="w-full">';
+        // Tableau détaillé
+        html += '<div class="border-2 border-gray-300 rounded-lg overflow-hidden">';
+        html += '<div class="overflow-x-auto">';
+        html += '<table class="w-full text-sm">';
         html += '<thead class="bg-gradient-to-r from-slate-700 to-slate-900 text-white">';
         html += '<tr>';
-        html += '<th class="p-4 text-left text-lg">Place</th>';
-        html += '<th class="p-4 text-left text-lg">Équipe et Élèves</th>';
-        html += '<th class="p-4 text-center text-lg">% Tir</th>';
-        html += '<th class="p-4 text-center text-lg">Temps</th>';
+        html += '<th class="p-2 text-left" rowspan="2">Place</th>';
+        html += '<th class="p-2 text-left" rowspan="2">Équipe et Élèves</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600" colspan="4">Round 1 (Qualifs)</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600" colspan="4">Round 2 (Qualifs)</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600" rowspan="2">Total<br/>Qualifs</th>';
+        html += '<th class="p-2 text-center border-l border-yellow-400 bg-yellow-600" colspan="2">FINALE</th>';
+        html += '</tr>';
+        html += '<tr class="border-t border-slate-600">';
+        html += '<th class="p-2 text-center border-l border-slate-600">Tirs</th>';
+        html += '<th class="p-2 text-center">%</th>';
+        html += '<th class="p-2 text-center">Temps</th>';
+        html += '<th class="p-2 text-center">Total</th>';
+        html += '<th class="p-2 text-center border-l border-slate-600">Tirs</th>';
+        html += '<th class="p-2 text-center">%</th>';
+        html += '<th class="p-2 text-center">Temps</th>';
+        html += '<th class="p-2 text-center">Total</th>';
+        html += '<th class="p-2 text-center border-l border-yellow-400 bg-yellow-600">%</th>';
+        html += '<th class="p-2 text-center bg-yellow-600">Temps</th>';
         html += '</tr>';
         html += '</thead>';
         html += '<tbody>';
         
-        for (let i = 0; i < classement.length; i++) {
-          const item = classement[i];
-          html += '<tr class="border-b ' + item.color + ' border-l-4">';
-          html += '<td class="p-4 font-bold text-2xl align-top">' + item.place + (item.place === 1 ? 'er' : 'ème') + '</td>';
-          html += '<td class="p-4">';
-          html += '<div class="font-bold text-xl mb-2">' + item.team + '</div>';
-          if (item.members && item.members.length > 0) {
-            html += '<div class="text-sm text-gray-600 space-y-1">';
-            for (let m = 0; m < item.members.length; m++) {
-              html += '<div>• ' + item.members[m] + '</div>';
+        for (let i = 0; i < allTeams.length; i++) {
+          const team = allTeams[i];
+          const hasFinale = team.finaleTime > 0;
+          
+          let rowColor = '';
+          if (i === 0) rowColor = 'bg-yellow-100 border-l-4 border-yellow-500';
+          else if (i === 1) rowColor = 'bg-gray-100 border-l-4 border-gray-400';
+          else if (i === 2) rowColor = 'bg-orange-100 border-l-4 border-orange-400';
+          else if (i < 8) rowColor = 'bg-green-50';
+          else rowColor = 'bg-orange-50';
+          
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+          
+          html += '<tr class="border-b ' + rowColor + '">';
+          html += '<td class="p-2 font-bold text-lg align-top">' + medal + ' ' + (hasFinale ? (i + 1) + (i === 0 ? 'er' : 'ème') : '-') + '</td>';
+          html += '<td class="p-2 align-top">';
+          html += '<div class="font-bold text-base mb-1">' + team.name + '</div>';
+          html += '<div class="text-xs text-gray-600">Poule ' + team.poule + '</div>';
+          if (team.members && team.members.length > 0) {
+            html += '<div class="text-xs text-gray-500 mt-1">';
+            for (let m = 0; m < team.members.length; m++) {
+              html += '<div>• ' + team.members[m] + '</div>';
             }
             html += '</div>';
           }
           html += '</td>';
-          html += '<td class="p-4 text-center font-bold text-lg">' + (item.percentage > 0 ? item.percentage.toFixed(1) + '%' : '-') + '</td>';
-          html += '<td class="p-4 text-center font-bold text-xl">' + item.time + '</td>';
+          
+          // Round 1
+          html += '<td class="p-2 text-center border-l border-gray-300">';
+          html += team.r1Blanc + team.r1Jaune > 0 ? (team.r1Blanc + team.r1Jaune) + '/' + (team.r1MaxTirs * 2) : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center ' + (team.r1Penalty > 0 ? 'text-red-600 font-bold' : 'text-green-600') + '">';
+          html += team.r1Pct > 0 ? team.r1Pct.toFixed(1) + '%' : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center">';
+          html += team.r1Time > 0 ? self.formatTime(team.r1Time) : '-';
+          if (team.r1Penalty > 0) html += '<div class="text-xs text-red-600">' + self.formatPenalty(team.r1Penalty) + '</div>';
+          html += '</td>';
+          html += '<td class="p-2 text-center font-semibold">';
+          html += team.r1Time > 0 ? self.formatTime(team.r1Time + team.r1Penalty) : '-';
+          html += '</td>';
+          
+          // Round 2
+          html += '<td class="p-2 text-center border-l border-gray-300">';
+          html += team.r2Blanc + team.r2Jaune > 0 ? (team.r2Blanc + team.r2Jaune) + '/' + (team.r2MaxTirs * 2) : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center ' + (team.r2Penalty > 0 ? 'text-red-600 font-bold' : 'text-green-600') + '">';
+          html += team.r2Pct > 0 ? team.r2Pct.toFixed(1) + '%' : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center">';
+          html += team.r2Time > 0 ? self.formatTime(team.r2Time) : '-';
+          if (team.r2Penalty > 0) html += '<div class="text-xs text-red-600">' + self.formatPenalty(team.r2Penalty) + '</div>';
+          html += '</td>';
+          html += '<td class="p-2 text-center font-semibold">';
+          html += team.r2Time > 0 ? self.formatTime(team.r2Time + team.r2Penalty) : '-';
+          html += '</td>';
+          
+          // Total Qualifs
+          html += '<td class="p-2 text-center font-bold border-l border-gray-300">';
+          html += team.qualifTotal > 0 ? self.formatTime(team.qualifTotal) : '-';
+          html += '</td>';
+          
+          // Finale
+          html += '<td class="p-2 text-center border-l border-yellow-400 bg-yellow-50 ' + (team.finalePct < self.settings.minPercentage && team.finalePct > 0 ? 'text-red-600 font-bold' : 'text-green-600') + '">';
+          html += team.finalePct > 0 ? team.finalePct.toFixed(1) + '%' : '-';
+          html += '</td>';
+          html += '<td class="p-2 text-center bg-yellow-50 font-bold text-base">';
+          html += team.finaleTime > 0 ? self.formatTime(team.finaleTime) : '-';
+          html += '</td>';
+          
           html += '</tr>';
-        }
-        
-        if (classement.length === 0) {
-          html += '<tr><td colspan="4" class="p-8 text-center text-gray-500">';
-          html += '<p class="text-xl">⏳ En attente des résultats des phases finales...</p>';
-          html += '<p class="text-sm mt-2">Le classement général sera calculé automatiquement une fois tous les temps saisis.</p>';
-          html += '</td></tr>';
         }
         
         html += '</tbody>';
         html += '</table>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded">';
+        html += '<p class="font-semibold mb-2">📊 Légende :</p>';
+        html += '<ul class="list-disc list-inside text-sm text-gray-700 space-y-1">';
+        html += '<li><strong>Tirs :</strong> Nombre de tirs réussis / Nombre de tirs maximum × 2</li>';
+        html += '<li><strong>% :</strong> Pourcentage de précision au tir (vert = OK, rouge = pénalité)</li>';
+        html += '<li><strong>Total :</strong> Temps brut + pénalité éventuelle</li>';
+        html += '<li><strong>Finale :</strong> Temps définitif pour le classement général</li>';
+        html += '</ul>';
         html += '</div>';
         
         html += '</div>';
@@ -1240,14 +1072,12 @@ formatPenalty(seconds) {
         html += '<p class="text-sm text-gray-700 mt-1">Ajoutez, retirez, renommez ou déplacez des équipes et des élèves</p>';
         html += '</div>';
 
-        // Bouton de réinitialisation
         html += '<div class="flex justify-end">';
         html += '<button onclick="app.resetPoulesData()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors">';
         html += '🔄 Réinitialiser aux données par défaut';
         html += '</button>';
         html += '</div>';
 
-        // Pour chaque poule
         const poules = ['A', 'B', 'C', 'D'];
         for (let p = 0; p < poules.length; p++) {
           const poule = poules[p];
@@ -1266,7 +1096,6 @@ formatPenalty(seconds) {
             const team = teams[t];
             html += '<div class="border border-gray-300 rounded-lg p-4 bg-gray-50">';
             
-            // En-tête de l'équipe
             html += '<div class="flex justify-between items-center mb-3">';
             html += '<div class="flex items-center gap-3">';
             html += '<input type="text" value="' + team.name + '" ';
@@ -1276,7 +1105,6 @@ formatPenalty(seconds) {
             html += '</div>';
             
             html += '<div class="flex gap-2">';
-            // Sélecteur pour déplacer l'équipe
             html += '<select onchange="if(this.value) app.moveTeam(\'' + poule + '\', ' + t + ', this.value); this.value=\'\'" ';
             html += 'class="px-2 py-1 border rounded text-sm">';
             html += '<option value="">Déplacer vers...</option>';
@@ -1292,7 +1120,6 @@ formatPenalty(seconds) {
             html += '</div>';
             html += '</div>';
 
-            // Liste des élèves
             html += '<div class="space-y-2">';
             html += '<div class="font-semibold text-sm text-gray-700 mb-2">Élèves :</div>';
             for (let m = 0; m < team.members.length; m++) {
@@ -1300,10 +1127,9 @@ formatPenalty(seconds) {
               html += '<span class="text-gray-800">' + team.members[m] + '</span>';
               html += '<button onclick="app.removeMemberFromTeam(\'' + poule + '\', ' + t + ', ' + m + ')" ';
               html += 'class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">Retirer</button>';
-            html += '</div>';
+              html += '</div>';
             }
             
-            // Formulaire pour ajouter un élève
             html += '<div class="flex gap-2 mt-3">';
             html += '<input type="text" id="newMember_' + poule + '_' + t + '" placeholder="Nom du nouvel élève" ';
             html += 'class="flex-1 px-3 py-2 border rounded focus:outline-none focus:border-blue-500"/>';
@@ -1352,12 +1178,11 @@ formatPenalty(seconds) {
 
         let html = '<div class="min-h-screen">';
         
-        // Header
         html += '<div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg">';
         html += '<div class="max-w-7xl mx-auto px-6 py-6">';
         html += '<div class="flex items-center justify-between"><div>';
         html += '<h1 class="text-4xl font-bold tracking-tight">Challenge Biathlon 3ème</h1>';
-        html += '<p class="text-slate-300 mt-1">Yves du Manoir • 3 Février 2026 • Avec Système de Précision au Tir</p>';
+        html += '<p class="text-slate-300 mt-1">Yves du Manoir • 3 Février 2026 • Finale Unique Simplifiée</p>';
         html += '</div>';
         html += '<div class="flex items-center gap-3">';
         html += '<div id="firebase-status" class="px-3 py-1 rounded-full text-xs font-semibold">';
@@ -1366,7 +1191,6 @@ formatPenalty(seconds) {
         html += '<button onclick="app.clearAllData()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-semibold transition-colors">Effacer toutes les données</button>';
         html += '</div></div></div></div>';
 
-        // Navigation
         html += '<div class="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-10">';
         html += '<div class="max-w-7xl mx-auto px-6"><div class="flex gap-2 overflow-x-auto py-2">';
         
@@ -1377,7 +1201,7 @@ formatPenalty(seconds) {
           {id: 'B', label: 'Poule B'},
           {id: 'C', label: 'Poule C'},
           {id: 'D', label: 'Poule D'},
-          {id: 'finales', label: '📋 Récapitulatif Finales'},
+          {id: 'finales', label: '📋 Récapitulatif'},
           {id: 'tournoi-principal', label: '🏆 Tournoi Principal'},
           {id: 'tournoi-consolante', label: '🎯 Tournoi Consolante'},
           {id: 'classement-general', label: '🏅 Classement Général'}
@@ -1392,7 +1216,6 @@ formatPenalty(seconds) {
         
         html += '</div></div></div>';
 
-        // Content
         html += '<div class="max-w-7xl mx-auto px-6 py-8">' + content + '</div>';
         html += '</div>';
 
@@ -1406,10 +1229,7 @@ formatPenalty(seconds) {
 
       async initAsync() {
         try {
-          // Premier render pour créer le DOM
           this.render();
-          
-          // Petit délai pour laisser le DOM se construire
           await new Promise(resolve => setTimeout(resolve, 100));
           
           updateFirebaseStatus('syncing', 'Chargement...');
@@ -1438,10 +1258,9 @@ formatPenalty(seconds) {
           updateFirebaseStatus('error', 'Erreur de connexion');
         }
       }
-    }  // ⬅️ CETTE ACCOLADE FERME LA CLASSE BiathonApp
+    }
 
     const app = new BiathonApp();
   </script>
 </body>
-</html>  
-    
+</html>
