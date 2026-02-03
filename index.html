@@ -925,13 +925,30 @@
           }
         }
         
-        // Trier par temps de finale (ceux sans temps à la fin)
-        allTeams.sort((a, b) => {
+        // NOUVEAU TRI : Respecter la hiérarchie Principal (1-8) puis Consolante (9-16)
+        // Séparer les équipes par tournoi
+        const principalTeams = allTeams.filter(t => t.tournamentType === 'principal');
+        const consolanteTeams = allTeams.filter(t => t.tournamentType === 'consolante');
+        
+        // Trier chaque groupe par temps de finale
+        principalTeams.sort((a, b) => {
           if (a.finaleTime === 0 && b.finaleTime === 0) return 0;
           if (a.finaleTime === 0) return 1;
           if (b.finaleTime === 0) return -1;
           return a.finaleTime - b.finaleTime;
         });
+        
+        consolanteTeams.sort((a, b) => {
+          if (a.finaleTime === 0 && b.finaleTime === 0) return 0;
+          if (a.finaleTime === 0) return 1;
+          if (b.finaleTime === 0) return -1;
+          return a.finaleTime - b.finaleTime;
+        });
+        
+        // Combiner : Principal d'abord (1-8), puis Consolante (9-16)
+        allTeams.length = 0;
+        allTeams.push(...principalTeams);
+        allTeams.push(...consolanteTeams);
         
         let html = '<div class="space-y-6">';
         html += '<h2 class="text-3xl font-bold">🏅 Classement Général du Tournoi</h2>';
@@ -940,6 +957,7 @@
         html += '<p class="font-semibold text-lg">🎯 Classement final de 1 à 16</p>';
         html += '<p class="text-sm text-gray-700 mt-1">Basé sur les temps de la finale unique (avec pénalités si % < ' + this.settings.minPercentage + '%)</p>';
         html += '<p class="text-sm text-gray-700">Détails complets : Qualifications (R1 + R2) + Finale</p>';
+        html += '<p class="text-sm font-semibold text-orange-700 mt-2">⚠️ Hiérarchie : Tournoi Principal = places 1 à 8 | Tournoi Consolante = places 9 à 16</p>';
         html += '</div>';
 
         // Tableau détaillé
