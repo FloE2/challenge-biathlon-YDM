@@ -878,10 +878,22 @@
             const team = teams[t];
             const qualifResult = this.getTeamResult(poule, team.name);
             
-            // Déterminer le type de tournoi
+            // Déterminer le type de tournoi basé sur la position RÉELLE dans le classement
             const ranking = this.getRanking(poule);
             const teamRanking = ranking.find(r => r.name === team.name);
-            const position = ranking.indexOf(teamRanking);
+            let position = -1;
+            
+            // Trouver la position réelle en comptant uniquement les équipes avec un temps
+            let currentPos = 0;
+            for (let r = 0; r < ranking.length; r++) {
+              if (ranking[r].totalTime > 0) {
+                if (ranking[r].name === team.name) {
+                  position = currentPos;
+                  break;
+                }
+                currentPos++;
+              }
+            }
             
             let tournamentType = '';
             if (position === 0 || position === 1) {
